@@ -27,6 +27,18 @@ type Vacuum struct {
 	ctx    context.Context
 }
 
+// RemoveLayers removes a layers from the filesystem
+func (v Vacuum) RemoveLayers(pathArray ...string) error {
+	for _,layerPath := range pathArray {
+		err := v.driver.Delete(v.ctx, layerPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // RemoveBlob removes a blob from the filesystem
 func (v Vacuum) RemoveBlob(dgst string) error {
 	d, err := digest.Parse(dgst)

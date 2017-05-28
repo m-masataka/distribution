@@ -41,6 +41,7 @@ type linkedBlobStore struct {
 
 	// linkDirectoryPathSpec locates the root directories in which one might find links
 	linkDirectoryPathSpec pathSpec
+
 }
 
 var _ distribution.BlobStore = &linkedBlobStore{}
@@ -231,6 +232,58 @@ func (lbs *linkedBlobStore) Delete(ctx context.Context, dgst digest.Digest) erro
 	return nil
 }
 
+func (lbs *linkedBlobStore) LayersEnumerate(ctx context.Context, repoName string, ingester func(digest.Digest, string) error) error {
+	rootPath, err := pathFor(layerDirectoryPathSpec{name: repoName})
+	if err != nil {
+		return err
+	}
+	err = Walk(ctx, lbs.blobStore.driver, rootPath, func(fileInfo driver.FileInfo) error {
+		// exit early if directory...
+		if fileInfo.IsDir() {
+			return nil
+		}
+		filePath := fileInfo.Path()
+
+		// check if it's a link
+		_, fileName := path.Split(filePath)
+		if fileName != "link" {
+			return nil
+		}
+
+		// read the digest found in link
+		digest, err := lbs.blobStore.readlink(ctx, filePath)
+		if err != nil {
+			return err
+		}
+
+		// ensure this conforms to the linkPathFns
+		_, err = lbs.Stat(ctx, digest)
+		if err != nil {
+			// we expect this error to occur so we move on
+			if err == distribution.ErrBlobUnknown {
+				return nil
+			}
+			return err
+		}
+		LinkPath, err := pathFor(layerLinkPathSpec{name: repoName, digest: digest})
+		if err != nil {
+			return err
+		}
+		err = ingestor(digest, LinkPath)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (lbs *linkedBlobStore) Enumerate(ctx context.Context, ingestor func(digest.Digest) error) error {
 	rootPath, err := pathFor(lbs.linkDirectoryPathSpec)
 	if err != nil {
@@ -265,7 +318,7 @@ func (lbs *linkedBlobStore) Enumerate(ctx context.Context, ingestor func(digest.
 			return err
 		}
 
-		err = ingestor(digest)
+		err = ingester(digest)
 		if err != nil {
 			return err
 		}

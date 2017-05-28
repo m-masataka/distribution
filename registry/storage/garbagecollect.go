@@ -23,6 +23,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 
 	// mark
 	markSet := make(map[digest.Digest]struct{})
+	layerSet := make(map[digest.Digest][]string)
 	err := repositoryEnumerator.Enumerate(ctx, func(repoName string) error {
 		emit(repoName)
 
@@ -62,6 +63,11 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 				emit("%s: marking blob %s", repoName, descriptor.Digest)
 			}
 
+			return nil
+		})
+
+		err = manifestEnumerator.LayersEnumerate(ctx, repoName, func(dgst digest.Digest, linkpath string) error {
+			layerSet[dgst] = append(layerSet[dgst],linkpath)
 			return nil
 		})
 
@@ -107,6 +113,10 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 		err = vacuum.RemoveBlob(string(dgst))
 		if err != nil {
 			return fmt.Errorf("failed to delete blob %s: %v", dgst, err)
+		}
+		err = vacuum.RemoveLayers(layerSet[dgst]...)
+		if err != nil {
+			return fmt.Errorf("failed to delete layers %s: %v", dgst, err)
 		}
 	}
 

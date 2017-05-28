@@ -139,3 +139,14 @@ func (ms *manifestStore) Enumerate(ctx context.Context, ingester func(digest.Dig
 	})
 	return err
 }
+
+func (ms *manifestStore) LayersEnumerate(ctx context.Context, repoName string, ingester func(digest.Digest, string) error) error {
+	err := ms.blobStore.LayersEnumerate(ctx, repoName, func(dgst digest.Digest, linkpath string) error {
+		err := ingester(dgst, linkpath)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return err
+}
