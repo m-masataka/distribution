@@ -284,7 +284,7 @@ func (lbs *linkedBlobStore) LayersEnumerate(ctx context.Context, repoName string
 	return nil
 }
 
-func (lbs *linkedBlobStore) Enumerate(ctx context.Context, ingestor func(digest.Digest) error) error {
+func (lbs *linkedBlobStore) Enumerate(ctx context.Context, ingester func(digest.Digest) error) error {
 	rootPath, err := pathFor(lbs.linkDirectoryPathSpec)
 	if err != nil {
 		return err
