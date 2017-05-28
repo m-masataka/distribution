@@ -269,7 +269,7 @@ func (lbs *linkedBlobStore) LayersEnumerate(ctx context.Context, repoName string
 		if err != nil {
 			return err
 		}
-		err = ingestor(digest, LinkPath)
+		err = ingester(digest, LinkPath)
 		if err != nil {
 			return err
 		}
