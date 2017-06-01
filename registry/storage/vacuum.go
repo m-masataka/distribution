@@ -29,7 +29,7 @@ type Vacuum struct {
 
 // RemoveLayers removes a layers from the filesystem
 func (v Vacuum) RemoveLayers(pathArray ...string) error {
-	for _,layerPath := range pathArray {
+	for _, layerPath := range pathArray {
 		err := v.driver.Delete(v.ctx, layerPath)
 		if err != nil {
 			return err

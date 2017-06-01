@@ -67,7 +67,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 		})
 
 		err = manifestEnumerator.LayersEnumerate(ctx, repoName, func(dgst digest.Digest, linkpath string) error {
-			layerSet[dgst] = append(layerSet[dgst],linkpath)
+			layerSet[dgst] = append(layerSet[dgst], linkpath)
 			return nil
 		})
 

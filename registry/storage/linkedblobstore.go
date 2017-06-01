@@ -41,7 +41,6 @@ type linkedBlobStore struct {
 
 	// linkDirectoryPathSpec locates the root directories in which one might find links
 	linkDirectoryPathSpec pathSpec
-
 }
 
 var _ distribution.BlobStore = &linkedBlobStore{}
