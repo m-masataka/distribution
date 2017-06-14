@@ -67,7 +67,6 @@ type ManifestService interface {
 type ManifestEnumerator interface {
 	// Enumerate calls ingester for each manifest.
 	Enumerate(ctx context.Context, ingester func(digest.Digest) error) error
-	LayersEnumerate(ctx context.Context, repoName string, ingester func(digest.Digest, string) error) error
 }
 
 // Describable is an interface for descriptors

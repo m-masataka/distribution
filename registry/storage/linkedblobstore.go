@@ -231,12 +231,12 @@ func (lbs *linkedBlobStore) Delete(ctx context.Context, dgst digest.Digest) erro
 	return nil
 }
 
-func (lbs *linkedBlobStore) LayersEnumerate(ctx context.Context, repoName string, ingester func(digest.Digest, string) error) error {
+func LayersEnumerate(ctx context.Context, storageDriver driver.StorageDriver, repoName string, ingester func(digest.Digest, string) error) error {
 	rootPath, err := pathFor(layerDirectoryPathSpec{name: repoName})
 	if err != nil {
 		return err
 	}
-	err = Walk(ctx, lbs.blobStore.driver, rootPath, func(fileInfo driver.FileInfo) error {
+	err = Walk(ctx, storageDriver, rootPath, func(fileInfo driver.FileInfo) error {
 		// exit early if directory...
 		if fileInfo.IsDir() {
 			return nil
@@ -250,37 +250,26 @@ func (lbs *linkedBlobStore) LayersEnumerate(ctx context.Context, repoName string
 		}
 
 		// read the digest found in link
-		digest, err := lbs.blobStore.readlink(ctx, filePath)
+		content, err := storageDriver.GetContent(ctx, filePath)
 		if err != nil {
 			return err
 		}
-
-		// ensure this conforms to the linkPathFns
-		_, err = lbs.Stat(ctx, digest)
-		if err != nil {
-			// we expect this error to occur so we move on
-			if err == distribution.ErrBlobUnknown {
-				return nil
-			}
-			return err
-		}
-		LinkPath, err := pathFor(layerLinkPathSpec{name: repoName, digest: digest})
+		dgst, err := digest.Parse(string(content))
 		if err != nil {
 			return err
 		}
-		err = ingester(digest, LinkPath)
+		//dgst, err := readlink(ctx, filePath)
+		//dgst := digest.Digest("sha256:1f88dc826b144c661a8d1d08561e1ff3711f527042955505e9f3e563bdb2281f")
 		if err != nil {
 			return err
 		}
-
-		return nil
+		LinkPath, err := pathFor(layerLinkPathSpec{name: repoName, digest: dgst})
+		if err != nil {
+			return err
+		}
+		return ingester(dgst, LinkPath)
 	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (lbs *linkedBlobStore) Enumerate(ctx context.Context, ingester func(digest.Digest) error) error {
