@@ -23,7 +23,6 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 
 	// mark
 	markSet := make(map[digest.Digest]struct{})
-	layerSet := make(map[digest.Digest][]string)
 	err := repositoryEnumerator.Enumerate(ctx, func(repoName string) error {
 		emit(repoName)
 
@@ -47,10 +46,12 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 			return fmt.Errorf("unable to convert ManifestService into ManifestEnumerator")
 		}
 
+		layerSet := make(map[digest.Digest]struct{})
 		err = manifestEnumerator.Enumerate(ctx, func(dgst digest.Digest) error {
 			// Mark the manifest's blob
 			emit("%s: marking manifest %s ", repoName, dgst)
 			markSet[dgst] = struct{}{}
+			layerSet[dgst] = struct{}{}
 
 			manifest, err := manifestService.Get(ctx, dgst)
 			if err != nil {
@@ -60,16 +61,25 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 			descriptors := manifest.References()
 			for _, descriptor := range descriptors {
 				markSet[descriptor.Digest] = struct{}{}
+				layerSet[descriptor.Digest] = struct{}{}
 				emit("%s: marking blob %s", repoName, descriptor.Digest)
 			}
 
 			return nil
 		})
 
+		deleteLayerSet := []string{}
 		err = LayersEnumerate(ctx, storageDriver, repoName, func(dgst digest.Digest, linkpath string) error {
-			layerSet[dgst] = append(layerSet[dgst], linkpath)
+			if _, ok := layerSet[dgst]; !ok {
+				deleteLayerSet = append(deleteLayerSet, linkpath)
+			}
 			return nil
 		})
+		vacuum := NewVacuum(ctx, storageDriver)
+		err = vacuum.RemoveLayers(deleteLayerSet...)
+		if err != nil {
+			return fmt.Errorf("failed to delete layers : %v", err)
+		}
 
 		if err != nil {
 			// In certain situations such as unfinished uploads, deleting all
@@ -113,10 +123,6 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 		err = vacuum.RemoveBlob(string(dgst))
 		if err != nil {
 			return fmt.Errorf("failed to delete blob %s: %v", dgst, err)
-		}
-		err = vacuum.RemoveLayers(layerSet[dgst]...)
-		if err != nil {
-			return fmt.Errorf("failed to delete layers %s: %v", dgst, err)
 		}
 	}
 
