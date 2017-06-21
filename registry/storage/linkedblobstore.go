@@ -231,46 +231,6 @@ func (lbs *linkedBlobStore) Delete(ctx context.Context, dgst digest.Digest) erro
 	return nil
 }
 
-// LayersEnumerate find layer's digest in the Repository.
-func LayersEnumerate(ctx context.Context, storageDriver driver.StorageDriver, repoName string, ingester func(digest.Digest, string) error) error {
-	rootPath, err := pathFor(layerDirectoryPathSpec{name: repoName})
-	if err != nil {
-		return err
-	}
-	err = Walk(ctx, storageDriver, rootPath, func(fileInfo driver.FileInfo) error {
-		// exit early if directory...
-		if fileInfo.IsDir() {
-			return nil
-		}
-		filePath := fileInfo.Path()
-
-		// check if it's a link
-		_, fileName := path.Split(filePath)
-		if fileName != "link" {
-			return nil
-		}
-
-		// read the digest found in link
-		content, err := storageDriver.GetContent(ctx, filePath)
-		if err != nil {
-			return err
-		}
-
-		dgst, err := digest.Parse(string(content))
-		if err != nil {
-			return err
-		}
-
-		// get path to the dgst
-		LinkPath, err := pathFor(layerLinkPathSpec{name: repoName, digest: dgst})
-		if err != nil {
-			return err
-		}
-		return ingester(dgst, LinkPath)
-	})
-	return err
-}
-
 func (lbs *linkedBlobStore) Enumerate(ctx context.Context, ingester func(digest.Digest) error) error {
 	rootPath, err := pathFor(lbs.linkDirectoryPathSpec)
 	if err != nil {

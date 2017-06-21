@@ -68,17 +68,29 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 			return nil
 		})
 
-		deleteLayerSet := []string{}
-		err = LayersEnumerate(ctx, storageDriver, repoName, func(dgst digest.Digest, linkpath string) error {
+		blobService := repository.Blobs(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to construct blob service: %v", err)
+		}
+
+		layerEnumerator, ok := blobService.(distribution.ManifestEnumerator)
+		if !ok {
+			return fmt.Errorf("failed to construct manifest service: %v", err)
+		}
+
+		deleteLayerSet := make(map[digest.Digest]struct{})
+		err = layerEnumerator.Enumerate(ctx, func(dgst digest.Digest) error {
 			if _, ok := layerSet[dgst]; !ok {
-				deleteLayerSet = append(deleteLayerSet, linkpath)
+				deleteLayerSet[dgst] = struct{}{}
 			}
 			return nil
 		})
 		vacuum := NewVacuum(ctx, storageDriver)
-		err = vacuum.RemoveLayers(deleteLayerSet...)
-		if err != nil {
-			return fmt.Errorf("failed to delete layers : %v", err)
+		for dgst := range deleteLayerSet {
+			err = vacuum.RemoveLayers(repoName, dgst)
+			if err != nil {
+				return fmt.Errorf("failed to delete layers : %v", err)
+			}
 		}
 
 		if err != nil {
