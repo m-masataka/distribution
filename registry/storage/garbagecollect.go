@@ -69,10 +69,6 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 		})
 
 		blobService := repository.Blobs(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to construct blob service: %v", err)
-		}
-
 		layerEnumerator, ok := blobService.(distribution.ManifestEnumerator)
 		if !ok {
 			return fmt.Errorf("failed to construct manifest service: %v", err)
